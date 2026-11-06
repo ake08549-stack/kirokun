@@ -46,3 +46,10 @@ export async function listHistory(): Promise<HistoryItem[]> {
 export async function deleteHistory(id: number): Promise<void> {
   await tx('readwrite', (s) => s.delete(id));
 }
+
+/** 要約を差し替えた履歴を返す(空なら summary を持たない形に戻す)。元のオブジェクトは変更しない。 */
+export function withSummary(item: HistoryItem, text: string): HistoryItem {
+  const rest: HistoryItem = { ...item };
+  delete rest.summary;
+  return text.trim() === '' ? rest : { ...rest, summary: text };
+}

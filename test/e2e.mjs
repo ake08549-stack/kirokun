@@ -60,9 +60,9 @@ const hosts = new Set();
 const browser = await chromium.launch({
   executablePath: chrome,
   headless: true,
-  args: ['--enable-unsafe-webgpu', '--enable-features=Vulkan', '--use-angle=metal'],
+  args: ['--enable-unsafe-webgpu', '--enable-features=Vulkan', '--use-angle=metal', '--autoplay-policy=no-user-gesture-required'],
 });
-const ctx = await browser.newContext({ acceptDownloads: true, viewport: { width: 1000, height: 900 } });
+const ctx = await browser.newContext({ acceptDownloads: true, viewport: { width: 1280, height: 900 } });
 const page = await ctx.newPage();
 page.on('request', (r) => { try { hosts.add(new URL(r.url()).host); } catch {} });
 page.on('console', (m) => { if (m.type() === 'error') console.log('[console.error]', m.text().slice(0, 300)); });
@@ -120,23 +120,55 @@ for (const k of ['txt', 'srt', 'vtt']) {
   const body = readFileSync(path, 'utf8');
   console.log(`download ${dl.suggestedFilename()} bytes=${body.length}`, JSON.stringify(body.slice(0, 70)));
 }
+// 再生(実音声): 区間クリック→再生位置、Space、←→、ハイライト
+const pl = () => page.evaluate(() => { const p = document.getElementById('player'); return { t: p.currentTime, paused: p.paused }; });
+const playingIdx = () => page.evaluate(() => [...document.querySelectorAll('.seg')].findIndex((r) => r.classList.contains('playing')));
+const lastStart = await page.$eval('.seg:last-child .ts', (e) => e.textContent);
+await page.click('.seg:last-child .ts');
+await page.waitForTimeout(600);
+const s1 = await pl();
+console.log(`click last ts ${lastStart}: currentTime=${s1.t.toFixed(2)} paused=${s1.paused} playingIdx=${await playingIdx()} (last=${segs.length - 1})`);
+await page.click('.res-title');
+await page.keyboard.press('Space');
+await page.waitForTimeout(200);
+const s2 = await pl();
+console.log('Space -> paused:', s2.paused);
+await page.keyboard.press('ArrowLeft');
+await page.waitForTimeout(150);
+const s3 = await pl();
+console.log(`ArrowLeft: ${s2.t.toFixed(2)} -> ${s3.t.toFixed(2)} (expect -5 or clamp at 0)`);
+await page.keyboard.press('ArrowRight');
+await page.waitForTimeout(150);
+console.log(`ArrowRight: -> ${(await pl()).t.toFixed(2)}`);
+await page.click('.seg:first-child .ts');
+await page.waitForTimeout(300);
+console.log('click first ts -> playingIdx:', await playingIdx());
+await page.keyboard.press('Space');
+// 要約の保存と復元
+await page.fill('#summary', '要点\n- e2eの要約テスト');
+await page.waitForTimeout(1000);
+console.log('summary state:', await page.textContent('#summaryState'));
+await page.screenshot({ path: join(root, `test/shot-1280-result-${profile}.png`) });
 // 履歴
-await page.click('#back');
+await page.click('#newBtn');
 await page.waitForTimeout(300);
 const hist = await page.$$eval('#historyList li', (e) => e.map((x) => x.textContent.trim().slice(0, 60)));
 console.log('history:', hist);
 await page.reload();
 await page.waitForTimeout(500);
-console.log('history after reload:', await page.$$eval('#historyList li', (e) => e.length));
+console.log('history after reload:', await page.$$eval('#historyList li[data-id]', (e) => e.length));
 await page.click('.hist-open');
 console.log('reopened from history, edited text persisted:', (await page.textContent('.seg:first-child .tx')).includes('【編集】'));
+console.log('summary restored after reload:', (await page.inputValue('#summary')) === '要点\n- e2eの要約テスト');
+console.log('no-audio notice:', await page.textContent('#pbNone'));
 // 375px
 await page.setViewportSize({ width: 375, height: 800 });
 await page.waitForTimeout(300);
 const overflow = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);
 console.log('375px horizontal overflow:', overflow);
 await page.screenshot({ path: join(root, `test/shot-375-result-${profile}.png`), fullPage: true });
-await page.click('#back');
+await page.click('#newBtn', { force: true }).catch(() => {});
+await page.evaluate(() => document.getElementById('newBtn').click());
 await page.screenshot({ path: join(root, `test/shot-375-home-${profile}.png`), fullPage: true });
 console.log('request hosts:', [...hosts].join(', '));
 writeFileSync(join(root, `test/result-${profile}${process.env.TAG ?? ''}.json`), JSON.stringify({ profile, gpu, wall, rawCer, normCer, segs }, null, 2));
