@@ -1,0 +1,7 @@
+node_modules/
+dist/
+public/ort/
+test/result-*.json
+test/shot-*.png
+test/test.aiff
+.DS_Store

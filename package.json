@@ -1,0 +1,28 @@
+{
+  "name": "kirokun",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --port 5173",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview --port 4173",
+    "start": "npm run build && vite preview --port 4173 --open",
+    "test": "vitest run",
+    "copy-ort": "node scripts/copy-ort.mjs",
+    "predev": "npm run copy-ort",
+    "prebuild": "npm run copy-ort",
+    "postinstall": "node scripts/copy-ort.mjs"
+  },
+  "dependencies": {
+    "@huggingface/transformers": "^3.8.1"
+  },
+  "devDependencies": {
+    "typescript": "^7.0.2",
+    "vite": "^8.3.6",
+    "vitest": "^5.1.0"
+  },
+  "overrides": {
+    "sharp": "^0.35.5"
+  }
+}
